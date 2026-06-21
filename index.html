@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adventurer's Guild - Guild Master Simulator</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Header with guild info -->
+        <header id="guild-header">
+            <div class="guild-info">
+                <h1 id="guild-name">Shadowmere Guild</h1>
+                <div class="guild-rank">
+                    Rank: <span id="guild-rank">E</span>
+                    <div class="rank-progress">
+                        <div id="rank-progress-bar" class="progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="resources">
+                    <div class="resource">
+                        <span class="resource-icon">💰</span>
+                        <span class="resource-label">Gold:</span>
+                        <span id="gold">100</span>
+                    </div>
+                    <div class="resource">
+                        <span class="resource-icon">📦</span>
+                        <span class="resource-label">Materials:</span>
+                        <span id="materials">50</span>
+                    </div>
+                    <div class="resource">
+                        <span class="resource-icon">⭐</span>
+                        <span class="resource-label">Reputation:</span>
+                        <span id="reputation">0</span>
+                    </div>
+                    <div class="resource">
+                        <span class="resource-icon">📅</span>
+                        <span class="resource-label">Date:</span>
+                        <span id="date-display">Year 1, Week 1, Day 1</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button id="next-day-btn" class="action-btn" style="padding: 10px 20px; font-size: 1.1em; background: var(--success);">⏭️ Next Day</button>
+                    <button id="save-btn" class="action-btn" style="padding: 10px 20px; background: var(--bg-light);">💾 Save</button>
+                    <button id="load-btn" class="action-btn" style="padding: 10px 20px; background: var(--bg-light);">📂 Load</button>
+                    <button id="reset-btn" class="action-btn" style="padding: 10px 20px; background: var(--danger);">🔄 Reset</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main game area -->
+        <main id="game-main">
+            <!-- Left sidebar - Navigation -->
+            <nav id="game-nav">
+                <button class="nav-btn active" data-tab="guild">Guild Hall</button>
+                <button class="nav-btn" data-tab="adventurers">Adventurers</button>
+                <button class="nav-btn" data-tab="quests">Quests</button>
+                <button class="nav-btn" data-tab="inventory">Inventory</button>
+                <button class="nav-btn" data-tab="crafting" id="nav-crafting" style="display:none">Crafting</button>
+                <button class="nav-btn" data-tab="shop" id="nav-shop" style="display:none">Shop</button>
+            </nav>
+
+            <!-- Content area -->
+            <section id="game-content">
+                <!-- Guild Hall Tab -->
+                <div id="tab-guild" class="tab-content active">
+                    <h2>Guild Hall</h2>
+                    <div id="guild-hall-view">
+                        <div id="guild-building">
+                            <div class="building-image" id="guild-art">
+                                <!-- ASCII art will be inserted here -->
+                            </div>
+                            <div class="building-info">
+                                <h3 id="building-name">Tattered Guild Hall</h3>
+                                <p id="building-desc">A run-down building that barely stands. But with care, it could become something great.</p>
+                            </div>
+                        </div>
+                        <div class="guild-stats">
+                            <h3>Guild Statistics</h3>
+                            <div class="stat-row">
+                                <span>Active Adventurers:</span>
+                                <span id="stat-adventurers">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <span>Completed Quests:</span>
+                                <span id="stat-quests-completed">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <span>Failed Quests:</span>
+                                <span id="stat-quests-failed">0</span>
+                            </div>
+                        </div>
+                        <div class="guild-upgrades">
+                            <h3>Upgrade Guild</h3>
+                            <div id="upgrade-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Adventurers Tab -->
+                <div id="tab-adventurers" class="tab-content">
+                    <h2>Your Adventurers</h2>
+                    <div class="adventurer-controls">
+                        <button id="btn-recruit" class="action-btn">Recruit Adventurer</button>
+                    </div>
+                    <div id="adventurer-list" class="card-list">
+                        <!-- Adventurer cards will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Quests Tab -->
+                <div id="tab-quests" class="tab-content">
+                    <h2>Quest Board</h2>
+                    <div class="quest-controls">
+                        <button id="btn-refresh-quests" class="action-btn">Refresh Quests</button>
+                        <select id="quest-filter">
+                            <option value="all">All Quests</option>
+                            <option value="available">Available</option>
+                            <option value="active">In Progress</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                    <div id="available-adventurers-panel"></div>
+                    <div id="quest-list" class="card-list">
+                        <!-- Quest cards will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Inventory Tab -->
+                <div id="tab-inventory" class="tab-content">
+                    <h2>Guild Inventory</h2>
+                    <div class="inventory-controls">
+                        <select id="inventory-filter">
+                            <option value="all">All Items</option>
+                            <option value="consumable">Consumables</option>
+                            <option value="equipment">Equipment</option>
+                            <option value="material">Materials</option>
+                            <option value="quest">Quest Items</option>
+                        </select>
+                    </div>
+                    <div id="inventory-grid" class="inventory-grid">
+                        <!-- Inventory slots will be inserted here -->
+                    </div>
+                    <div id="item-details" class="item-details">
+                        <h3>Select an item to view details</h3>
+                    </div>
+                </div>
+
+                <!-- Shop Tab -->
+                <div id="tab-shop" class="tab-content">
+                    <h2>Shop</h2>
+                    <div id="shop-inventory" class="card-list">
+                        <!-- Shop items will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Crafting Tab -->
+                <div id="tab-crafting" class="tab-content">
+                    <h2>Blacksmith</h2>
+                    <p style="color:var(--text-secondary);margin-bottom:20px">Craft equipment for your adventurers using materials.</p>
+                    <div id="crafting-list" class="crafting-section">
+                        <!-- Crafting recipes will be inserted here -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Quest Assignment Modal -->
+        <div id="modal-overlay" class="modal-overlay hidden">
+            <div id="modal-content" class="modal-content">
+                <button id="modal-close" class="modal-close">&times;</button>
+                <div id="modal-body">
+                    <!-- Modal content will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification area -->
+        <div id="notifications" class="notifications"></div>
+    </div>
+
+    <!-- Game Scripts -->
+    <script src="js/data.js?v=5"></script>
+    <script src="js/adventurer.js?v=5"></script>
+    <script src="js/quest.js?v=5"></script>
+    <script src="js/guild.js?v=5"></script>
+    <script src="js/inventory.js?v=5"></script>
+    <script src="js/ui.js?v=5"></script>
+    <script src="js/game.js?v=5"></script>
+    <script src="js/main.js?v=5"></script>
+</body>
+</html>
