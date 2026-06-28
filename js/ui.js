@@ -59,7 +59,7 @@ class UIController {
     }
 
     renderCurrentTab() {
-        const renderers = { guild: 'renderGuildHall', adventurers: 'renderAdventurers', quests: 'renderQuests', inventory: 'renderInventory', crafting: 'renderCrafting', shop: 'renderShop' };
+        const renderers = { guild: 'renderGuildHall', adventurers: 'renderAdventurers', quests: 'renderQuests', inventory: 'renderInventory', crafting: 'renderCrafting', shop: 'renderShop', settings: 'renderSettings' };
         if (renderers[this.currentTab]) this[renderers[this.currentTab]]();
     }
 
@@ -275,16 +275,31 @@ class UIController {
         if (!window.game) return;
         const g = window.game.guild;
 
+        // Update refresh button state
+        const refreshBtn = document.getElementById('btn-refresh-quests');
+        if (refreshBtn) {
+            const remaining = MAX_REFRESHES_PER_DAY - g.refreshesToday;
+            if (remaining <= 0) {
+                refreshBtn.textContent = 'Refresh Quests (No Refreshes Left)';
+                refreshBtn.disabled = true;
+            } else {
+                const cost = REFRESH_COSTS[g.refreshesToday];
+                const canAfford = g.gold >= cost;
+                refreshBtn.textContent = `Refresh Quests (${cost}g) [${remaining}/${MAX_REFRESHES_PER_DAY}]`;
+                refreshBtn.disabled = !canAfford;
+            }
+        }
+
         // Render available adventurers panel
         this.renderAvailableAdventurers(g);
 
         const list = document.getElementById('quest-list');
         let quests;
         switch (filter) {
-            case 'available': quests = g.availableQuests; break;
+            case 'available': quests = [...g.availableQuests].sort((a, b) => (b.isUrgent ? 1 : 0) - (a.isUrgent ? 1 : 0)); break;
             case 'active': quests = g.activeQuests; break;
             case 'completed': quests = g.completedQuests.slice(-10); break;
-            default: quests = [...g.availableQuests, ...g.activeQuests];
+            default: quests = [...g.availableQuests].sort((a, b) => (b.isUrgent ? 1 : 0) - (a.isUrgent ? 1 : 0)).concat(g.activeQuests);
         }
         if (quests.length === 0) { list.innerHTML = '<div class="empty-state"><h3>No Quests</h3><p>Refresh or check back later.</p></div>'; return; }
         list.innerHTML = '';
@@ -318,10 +333,28 @@ class UIController {
 
     createQuestCard(quest) {
         const card = document.createElement('div');
-        card.className = 'quest-card' + (quest.isRankUpQuest ? ' rank-up-quest' : '');
+        let cardClass = 'quest-card';
+        if (quest.isRankUpQuest) cardClass += ' rank-up-quest';
+        if (quest.isUrgent && quest.status === 'available') cardClass += ' urgent-quest';
+        card.className = cardClass;
+
         const qt = QUEST_TYPES[quest.type];
         const isAvail = quest.status === 'available';
-        let html = '<div class="quest-header"><div class="quest-name">' + qt.icon + ' ' + quest.name + '</div><span class="quest-rank rank-' + QUEST_DIFFICULTIES[quest.difficulty].minRank + '">' + quest.difficulty.replace(/_/g,' ') + '</span></div>';
+
+        // Header with urgent badge
+        let html = '<div class="quest-header">';
+        html += '<div class="quest-name">' + qt.icon + ' ' + quest.name + '</div>';
+        html += '<div class="quest-header-right">';
+        if (quest.isUrgent && isAvail) html += '<span class="urgent-badge">🚨 URGENT</span>';
+        html += '<span class="quest-rank rank-' + QUEST_DIFFICULTIES[quest.difficulty].minRank + '">' + quest.difficulty.replace(/_/g,' ') + '</span>';
+        html += '</div></div>';
+
+        // Expiry badge for available quests
+        if (isAvail && !quest.isRankUpQuest && quest.expiresIn !== Infinity) {
+            const expiryClass = quest.expiresIn <= 1 ? 'expiry-critical' : (quest.expiresIn <= 2 ? 'expiry-warning' : '');
+            html += '<div class="expiry-badge ' + expiryClass + '">⏰ ' + quest.expiresIn + ' day' + (quest.expiresIn !== 1 ? 's' : '') + ' left</div>';
+        }
+
         html += '<p class="quest-description">' + quest.description + '</p>';
         html += '<div class="quest-requirements"><h4>Details</h4>';
         html += '<div class="requirement-item"><span>Type:</span><span>' + qt.name + '</span></div>';
@@ -347,6 +380,12 @@ class UIController {
         }
         html += '</div>';
         html += '<div class="quest-rewards"><span class="reward-item">Gold ' + quest.goldReward + '</span><span class="reward-item">Rep ' + quest.reputationReward + '</span><span class="reward-item">EXP ' + quest.baseExp + ' base</span></div>';
+
+        // Reputation penalty warning for urgent/expiring quests
+        if (isAvail && quest.repPenalty > 0) {
+            html += '<div class="penalty-warning">⚠️ If ignored: -' + quest.repPenalty + ' reputation</div>';
+        }
+
         if (isAvail) html += '<button class="quest-btn" style="margin-top:15px;width:100%">' + (quest.maxPartySize > 1 ? 'Assemble Party' : 'Assign Adventurer') + '</button>';
         if (isAvail) html += '<button class="action-btn btn-dismiss-quest" style="margin-top:8px;width:100%;background:var(--border);font-size:0.85em">Dismiss Quest</button>';
         card.innerHTML = html;
@@ -364,17 +403,25 @@ class UIController {
     renderInventory(filter) {
         if (!filter) filter = 'all';
         if (!window.game) return;
-        const inv = window.game.guild.inventory;
+        const g = window.game.guild;
+        const inv = g.inventory;
         const grid = document.getElementById('inventory-grid');
         const items = inv.getItemsByType(filter);
         grid.innerHTML = '';
+
+        // Update capacity display
+        const capEl = document.getElementById('inventory-capacity');
+        if (capEl) capEl.textContent = inv.size + '/' + inv.maxSize;
+
         for (let i = 0; i < inv.maxSize; i++) {
             const slot = document.createElement('div');
             slot.className = 'inventory-slot';
             if (items[i]) {
                 const it = items[i];
-                slot.innerHTML = '<span class="item-icon">' + (it.icon || '?') + '</span>' + (it.quantity > 1 ? '<span class="item-count">' + it.quantity + '</span>' : '');
-                slot.title = it.name;
+                const typeLabels = { equipment: 'Equip', consumable: 'Use', material: 'Mat', quest: 'Q' };
+                const typeLabel = typeLabels[it.type] || '';
+                slot.innerHTML = '<span class="item-icon">' + (it.icon || '?') + '</span>' + (it.quantity > 1 ? '<span class="item-count">' + it.quantity + '</span>' : '') + '<span class="item-type-badge type-' + it.type + '">' + typeLabel + '</span>';
+                slot.title = it.name + ' (' + it.type + ')';
                 if (this.selectedItem && this.selectedItem.instanceId === it.instanceId) slot.classList.add('selected');
                 slot.addEventListener('click', () => { this.selectedItem = it; this.renderItemDetails(it); this.renderInventory(filter); });
             }
@@ -427,74 +474,96 @@ class UIController {
             return;
         }
 
-        if (!this.craftingCategory) this.craftingCategory = 'weapon';
+        if (!this.craftingCategory) this.craftingCategory = null;
 
-        const categories = [
-            { key: 'weapon', label: 'Weapons', icon: '⚔️' },
-            { key: 'armor', label: 'Armor', icon: '🛡️' },
-            { key: 'accessory', label: 'Accessories', icon: '💍' }
-        ];
-
-        let tabsHtml = '<div class="crafting-categories">';
-        categories.forEach(cat => {
-            tabsHtml += '<button class="crafting-cat-btn' + (this.craftingCategory === cat.key ? ' active' : '') + '" data-cat="' + cat.key + '">' + cat.icon + ' ' + cat.label + '</button>';
-        });
-        tabsHtml += '</div>';
-
-        const filtered = recipes.filter(r => r.slot === this.craftingCategory);
-
-        let html = tabsHtml;
-        if (filtered.length === 0) {
-            html += '<div class="empty-state"><p>No recipes in this category yet.</p></div>';
+        // Category selection screen
+        if (!this.craftingCategory) {
+            const categories = [
+                { key: 'weapon', label: 'Weapons', icon: '⚔️', desc: 'Swords, bows, staffs' },
+                { key: 'armor', label: 'Armor', icon: '🛡️', desc: 'Shields, robes, cloaks' },
+                { key: 'accessory', label: 'Accessories', icon: '💍', desc: 'Rings, amulets, trinkets' }
+            ];
+            let html = '<div class="crafting-menu">';
+            categories.forEach(cat => {
+                const count = recipes.filter(r => r.slot === cat.key).length;
+                html += '<button class="crafting-menu-item" data-cat="' + cat.key + '">';
+                html += '<span class="crafting-menu-icon">' + cat.icon + '</span>';
+                html += '<div class="crafting-menu-text"><span class="crafting-menu-label">' + cat.label + '</span>';
+                html += '<span class="crafting-menu-desc">' + cat.desc + ' (' + count + ' recipes)</span></div>';
+                html += '<span class="crafting-menu-arrow">›</span>';
+                html += '</button>';
+            });
+            html += '</div>';
             list.innerHTML = html;
+
+            list.querySelectorAll('.crafting-menu-item').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    this.craftingCategory = btn.dataset.cat;
+                    this.renderCrafting();
+                });
+            });
             return;
         }
 
-        filtered.forEach(recipe => {
-            const card = document.createElement('div');
-            card.className = 'crafting-card';
-            const canCraft = g.canCraft(recipe.id);
+        // Compact recipe list
+        const filtered = recipes.filter(r => r.slot === this.craftingCategory);
+        const catLabels = { weapon: 'Weapons', armor: 'Armor', accessory: 'Accessories' };
 
-            let cardHtml = '<div class="crafting-card-header">';
-            cardHtml += '<span class="crafting-card-name">' + recipe.name + '</span>';
-            cardHtml += '<span class="crafting-card-icon">' + recipe.icon + '</span>';
-            cardHtml += '</div>';
+        let html = '<div class="crafting-list-header">';
+        html += '<button class="action-btn crafting-back-btn" style="padding:6px 12px;font-size:0.85em;background:var(--bg-dark)">← Back</button>';
+        html += '<span class="crafting-list-title">' + catLabels[this.craftingCategory] + '</span>';
+        html += '</div>';
 
-            cardHtml += '<div class="crafting-materials">';
-            recipe.materials.forEach(mat => {
-                const owned = g.inventory.items.find(i => i.id === mat.id);
-                const ownedQty = owned ? owned.quantity : 0;
-                const enough = ownedQty >= mat.quantity;
-                const matName = mat.id.replace(/_/g, ' ');
-                cardHtml += '<span class="material-req ' + (enough ? 'material-owned' : 'material-missing') + '">' + matName + ': ' + ownedQty + '/' + mat.quantity + '</span>';
-            });
-            cardHtml += '</div>';
+        if (filtered.length === 0) {
+            html += '<div class="empty-state"><p>No recipes in this category yet.</p></div>';
+            list.innerHTML = html;
+        } else {
+            list.innerHTML = '';
+            list.insertAdjacentHTML('afterbegin', html);
 
-            cardHtml += '<div class="crafting-cost"><span>Gold: ' + recipe.goldCost + '</span></div>';
-            cardHtml += '<button class="action-btn craft-btn"' + (canCraft ? '' : ' disabled') + '>Craft</button>';
+            filtered.forEach(recipe => {
+                const row = document.createElement('div');
+                row.className = 'crafting-row';
+                const canCraft = g.canCraft(recipe.id);
 
-            card.innerHTML = cardHtml;
-
-            if (canCraft) {
-                card.querySelector('.craft-btn').addEventListener('click', () => {
-                    const result = g.craftItem(recipe.id);
-                    this.showNotification(result.message, result.success ? 'success' : 'error');
-                    if (result.success) {
-                        this.updateResources();
-                        this.renderCrafting();
-                    }
+                let rowHtml = '<div class="crafting-row-left">';
+                rowHtml += '<span class="crafting-row-icon">' + recipe.icon + '</span>';
+                rowHtml += '<div class="crafting-row-info"><span class="crafting-row-name">' + recipe.name + '</span>';
+                rowHtml += '<div class="crafting-row-materials">';
+                recipe.materials.forEach(mat => {
+                    const owned = g.inventory.items.find(i => i.id === mat.id);
+                    const ownedQty = owned ? owned.quantity : 0;
+                    const enough = ownedQty >= mat.quantity;
+                    const matName = mat.id.replace(/_/g, ' ');
+                    rowHtml += '<span class="material-chip ' + (enough ? 'material-ok' : 'material-no') + '">' + matName + ' ' + ownedQty + '/' + mat.quantity + '</span>';
                 });
-            }
+                rowHtml += '</div></div></div>';
+                rowHtml += '<div class="crafting-row-right">';
+                rowHtml += '<span class="crafting-row-cost">💰 ' + recipe.goldCost + '</span>';
+                rowHtml += '<button class="action-btn crafting-row-btn"' + (canCraft ? '' : ' disabled') + '>Craft</button>';
+                rowHtml += '</div>';
 
-            list.appendChild(card);
-        });
+                row.innerHTML = rowHtml;
 
-        list.querySelectorAll('.crafting-cat-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.craftingCategory = btn.dataset.cat;
+                if (canCraft) {
+                    row.querySelector('.crafting-row-btn').addEventListener('click', () => {
+                        const result = g.craftItem(recipe.id);
+                        this.showNotification(result.message, result.success ? 'success' : 'error');
+                        if (result.success) {
+                            this.updateResources();
+                            this.renderCrafting();
+                        }
+                    });
+                }
+
+                list.appendChild(row);
+            });
+
+            list.querySelector('.crafting-back-btn').addEventListener('click', () => {
+                this.craftingCategory = null;
                 this.renderCrafting();
             });
-        });
+        }
     }
 
     buyItem(si) {
@@ -807,6 +876,55 @@ class UIController {
             list.appendChild(card);
         });
         document.getElementById('modal-overlay').classList.remove('hidden');
+    }
+
+    renderSettings() {
+        const muteToggle = document.getElementById('mute-toggle');
+        muteToggle.checked = localStorage.getItem('guildSimulatorMuted') === 'true';
+        muteToggle.onchange = () => {
+            localStorage.setItem('guildSimulatorMuted', muteToggle.checked);
+            this.showNotification(muteToggle.checked ? 'Audio muted' : 'Audio unmuted', 'info');
+        };
+
+        document.getElementById('export-save-btn').onclick = () => {
+            const data = localStorage.getItem('guildSimulatorSave');
+            if (!data) { this.showNotification('No save to export!', 'warning'); return; }
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'guild_simulator_save.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            this.showNotification('Save exported!', 'success');
+        };
+
+        const fileInput = document.getElementById('import-save-input');
+        document.getElementById('import-save-btn').onclick = () => fileInput.click();
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    if (!data.version) throw new Error('Invalid save file');
+                    localStorage.setItem('guildSimulatorSave', ev.target.result);
+                    window.game.loadGame();
+                    this.showNotification('Save imported successfully!', 'success');
+                } catch (err) {
+                    this.showNotification('Invalid save file!', 'error');
+                }
+            };
+            reader.readAsText(file);
+            fileInput.value = '';
+        };
+
+        document.getElementById('reset-btn').onclick = () => {
+            if (confirm('Are you sure you want to reset? All progress will be lost!')) {
+                window.game.resetGame();
+            }
+        };
     }
 
     showNotification(message, type) {

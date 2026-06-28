@@ -44,9 +44,6 @@
                 </div>
                 <div class="header-actions">
                     <button id="next-day-btn" class="action-btn" style="padding: 10px 20px; font-size: 1.1em; background: var(--success);">⏭️ Next Day</button>
-                    <button id="save-btn" class="action-btn" style="padding: 10px 20px; background: var(--bg-light);">💾 Save</button>
-                    <button id="load-btn" class="action-btn" style="padding: 10px 20px; background: var(--bg-light);">📂 Load</button>
-                    <button id="reset-btn" class="action-btn" style="padding: 10px 20px; background: var(--danger);">🔄 Reset</button>
                 </div>
             </div>
         </header>
@@ -61,6 +58,7 @@
                 <button class="nav-btn" data-tab="inventory">Inventory</button>
                 <button class="nav-btn" data-tab="crafting" id="nav-crafting" style="display:none">Crafting</button>
                 <button class="nav-btn" data-tab="shop" id="nav-shop" style="display:none">Shop</button>
+                <button class="nav-btn" data-tab="settings">Settings</button>
             </nav>
 
             <!-- Content area -->
@@ -140,6 +138,7 @@
                             <option value="material">Materials</option>
                             <option value="quest">Quest Items</option>
                         </select>
+                        <span id="inventory-capacity" class="inventory-capacity">0/20</span>
                     </div>
                     <div id="inventory-grid" class="inventory-grid">
                         <!-- Inventory slots will be inserted here -->
@@ -165,6 +164,46 @@
                         <!-- Crafting recipes will be inserted here -->
                     </div>
                 </div>
+                <!-- Settings Tab -->
+                <div id="tab-settings" class="tab-content">
+                    <h2>Settings</h2>
+                    <div class="settings-section">
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <h3>Mute Audio</h3>
+                                <p>Turn off all game sounds</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="mute-toggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <h3>Export Save</h3>
+                                <p>Download your save file as JSON</p>
+                            </div>
+                            <button class="action-btn" id="export-save-btn" style="background:var(--bg-light)">Export Save</button>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <h3>Import Save</h3>
+                                <p>Load a save file from JSON</p>
+                            </div>
+                            <div>
+                                <input type="file" id="import-save-input" accept=".json" style="display:none">
+                                <button class="action-btn" id="import-save-btn" style="background:var(--bg-light)">Import Save</button>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <h3>Reset Game</h3>
+                                <p>Delete all progress and start fresh</p>
+                            </div>
+                            <button class="action-btn" id="reset-btn" style="background:var(--danger)">Reset Game</button>
+                        </div>
+                    </div>
+                </div>
             </section>
         </main>
 
@@ -183,13 +222,13 @@
     </div>
 
     <!-- Game Scripts -->
-    <script src="js/data.js?v=5"></script>
-    <script src="js/adventurer.js?v=5"></script>
-    <script src="js/quest.js?v=5"></script>
-    <script src="js/guild.js?v=5"></script>
-    <script src="js/inventory.js?v=5"></script>
-    <script src="js/ui.js?v=5"></script>
-    <script src="js/game.js?v=5"></script>
-    <script src="js/main.js?v=5"></script>
+    <script src="js/data.js?v=12"></script>
+    <script src="js/adventurer.js?v=12"></script>
+    <script src="js/quest.js?v=12"></script>
+    <script src="js/guild.js?v=12"></script>
+    <script src="js/inventory.js?v=12"></script>
+    <script src="js/ui.js?v=12"></script>
+    <script src="js/game.js?v=12"></script>
+    <script src="js/main.js?v=12"></script>
 </body>
 </html>

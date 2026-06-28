@@ -160,7 +160,7 @@ class Adventurer {
         const nextRankIndex = this.getRankIndex() + 1;
         if (nextRankIndex >= RANKS.length) return false;
 
-        return this.experience >= this.expToPromote;
+        return this.experience >= this.expToPromote && this.hasActionPoint();
     }
 
     getAvailableEvolutions() {
@@ -188,6 +188,9 @@ class Adventurer {
         if (!availableEvolutions.find(e => e.id === newClassId)) {
             return { success: false, message: 'Invalid evolution path!' };
         }
+
+        // Consume action point
+        this.useActionPoint();
 
         const oldClass = this.classData.name;
         this.classId = newClassId;

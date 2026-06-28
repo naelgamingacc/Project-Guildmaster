@@ -20,7 +20,10 @@ class Guild {
         this.activeQuests = [];
         this.completedQuests = [];
         this.failedQuests = [];
-        this.maxAvailableQuests = 5;
+        this.maxAvailableQuests = this.maxAdventurers + 1;
+
+        // Refresh tracking
+        this.refreshesToday = 0;
 
         // Guild hall
         this.guildHallStage = 0;
@@ -204,8 +207,12 @@ class Guild {
         // Increase max adventurers
         this.maxAdventurers = 5 + RANKS.indexOf(newRank) * 2;
 
-        // Increase max quests
-        this.maxAvailableQuests = 5 + RANKS.indexOf(newRank) * 2;
+        // Max quests = max adventurers + 1
+        this.maxAvailableQuests = this.maxAdventurers + 1;
+
+        // Increase max inventory
+        this.maxInventorySize = 20 + RANKS.indexOf(newRank) * 5;
+        this.inventory.maxSize = this.maxInventorySize;
 
         return {
             oldRank,
@@ -260,13 +267,52 @@ class Guild {
     }
 
     refreshQuests() {
-        // Clear all available quests (except rank-up quests)
-        this.availableQuests = this.availableQuests.filter(q => q.isRankUpQuest);
+        // Check daily limit
+        if (this.refreshesToday >= MAX_REFRESHES_PER_DAY) {
+            return { success: false, message: 'No refreshes remaining today!' };
+        }
 
-        // Generate new quests
-        const newQuests = Quest.generateQuests(3, this.rank);
+        // Check cost
+        const cost = REFRESH_COSTS[this.refreshesToday];
+        if (this.gold < cost) {
+            return { success: false, message: 'Not enough gold! Need ' + cost + 'g.' };
+        }
+
+        // Deduct gold and increment counter
+        this.spendGold(cost);
+        this.refreshesToday++;
+
+        // Remove all available quests except rank-up quests
+        const rankUpQuests = this.availableQuests.filter(q => q.isRankUpQuest);
+        this.availableQuests = rankUpQuests;
+
+        // Calculate how many quests to generate
+        const slotsAvailable = this.maxAvailableQuests - rankUpQuests.length;
+        const numToGenerate = Math.min(3, slotsAvailable);
+
+        // Generate normal quests
+        const newQuests = Quest.generateQuests(numToGenerate, this.rank);
         newQuests.forEach(q => this.addQuest(q));
-        return newQuests;
+
+        // Chance for urgent quest
+        let urgentQuest = null;
+        if (Math.random() < URGENT_QUEST_CHANCE && this.availableQuests.length < this.maxAvailableQuests) {
+            const rankTemplates = URGENT_QUEST_TEMPLATES.filter(t => t.difficulty === this.rank || RANKS.indexOf(t.difficulty) === RANKS.indexOf(this.rank) - 1);
+            const templates = rankTemplates.length > 0 ? rankTemplates : URGENT_QUEST_TEMPLATES.filter(t => t.difficulty === this.rank);
+            if (templates.length > 0) {
+                const template = templates[Math.floor(Math.random() * templates.length)];
+                urgentQuest = new Quest(template, template.difficulty);
+                this.addQuest(urgentQuest);
+            }
+        }
+
+        return {
+            success: true,
+            cost: cost,
+            newQuests: newQuests,
+            urgentQuest: urgentQuest,
+            remaining: MAX_REFRESHES_PER_DAY - this.refreshesToday
+        };
     }
 
     assignQuest(questId, adventurerId) {
@@ -376,6 +422,55 @@ class Guild {
         }
 
         return results;
+    }
+
+    processQuestExpiry() {
+        const results = [];
+
+        // Process available quests (non-rank-up)
+        for (let i = this.availableQuests.length - 1; i >= 0; i--) {
+            const quest = this.availableQuests[i];
+            if (quest.isRankUpQuest) continue;
+
+            quest.expiresIn--;
+
+            if (quest.expiresIn <= 0) {
+                // Quest expired - remove and penalize reputation
+                this.availableQuests.splice(i, 1);
+
+                // Scale penalty by guild rank and headcount
+                const rankMultiplier = 1 + RANKS.indexOf(this.rank) * 0.2;
+                const headcountMultiplier = Math.max(1, this.adventurers.length / 3);
+                const penalty = Math.floor(quest.repPenalty * rankMultiplier * headcountMultiplier);
+
+                this.reputation = Math.max(0, this.reputation - penalty);
+
+                results.push({
+                    type: 'expired',
+                    quest: quest,
+                    repPenalty: penalty,
+                    isUrgent: quest.isUrgent
+                });
+            }
+        }
+
+        return results;
+    }
+
+    trySpawnUrgentQuest() {
+        if (Math.random() >= 0.25) return null;
+        if (this.availableQuests.length >= this.maxAvailableQuests) return null;
+
+        const rankTemplates = URGENT_QUEST_TEMPLATES.filter(
+            t => t.difficulty === this.rank || RANKS.indexOf(t.difficulty) === RANKS.indexOf(this.rank) - 1
+        );
+        const templates = rankTemplates.length > 0 ? rankTemplates : URGENT_QUEST_TEMPLATES.filter(t => t.difficulty === this.rank);
+        if (templates.length === 0) return null;
+
+        const template = templates[Math.floor(Math.random() * templates.length)];
+        const quest = new Quest(template, template.difficulty);
+        this.addQuest(quest);
+        return quest;
     }
 
     // ===== ACTION POINT SYSTEM =====
@@ -698,6 +793,7 @@ class Guild {
             totalQuestsFailed: this.totalQuestsFailed,
             totalGoldEarned: this.totalGoldEarned,
             inventory: this.inventory.items.map(i => ({...i})),
+            maxInventorySize: this.maxInventorySize,
             day: this.day,
             week: this.week,
             year: this.year,
@@ -705,7 +801,8 @@ class Guild {
             maxAvailableQuests: this.maxAvailableQuests,
             questsCompletedByRank: { ...this.questsCompletedByRank },
             unlockedFeatures: [...this.unlockedFeatures],
-            rankUpQuestActive: this.rankUpQuestActive
+            rankUpQuestActive: this.rankUpQuestActive,
+            refreshesToday: this.refreshesToday
         };
     }
 
@@ -751,6 +848,9 @@ class Guild {
                 }).filter(a => typeof a !== 'string');
             }
         });
+
+        // Backward compat: default new fields
+        if (data.refreshesToday === undefined) guild.refreshesToday = 0;
 
         return guild;
     }

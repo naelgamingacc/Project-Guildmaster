@@ -12,6 +12,37 @@ const RANK_REQUIREMENTS = {
     S: 1500
 };
 
+// ===== Quest Board Refresh System =====
+const REFRESH_COSTS = [100, 300, 500];
+const MAX_REFRESHES_PER_DAY = 3;
+const URGENT_QUEST_CHANCE = 0.3;
+
+// ===== Urgent Quest Templates =====
+const URGENT_QUEST_TEMPLATES = [
+    // E-Rank Urgent
+    { type: 'combat', name: 'Help Stuck Merchant Cart', description: 'A merchant\'s cart is stuck in the mud on the road. Lend your strength to free it before bandits arrive!', baseGold: 60, baseRep: 12, baseExp: 40, difficulty: 'E', recommendedTraits: ['melee_attack'], recommendedType: 'melee', partySize: 1, expiryDays: 1, repPenalty: 15, isUrgent: true },
+    { type: 'exploration', name: 'Supplies Delivery', description: 'An urgent supply run to the village before nightfall. Speed is essential — lives depend on it!', baseGold: 55, baseRep: 10, baseExp: 35, difficulty: 'E', recommendedTraits: ['scouting', 'tracking'], recommendedType: 'ranged', partySize: 1, expiryDays: 1, repPenalty: 15, isUrgent: true },
+    { type: 'crafting', name: 'Jumpstart Magic Device', description: 'An ancient magical device has activated and is causing chaos! Someone with arcane knowledge must shut it down.', baseGold: 50, baseRep: 10, baseExp: 35, difficulty: 'E', recommendedTraits: ['arcane_knowledge'], recommendedType: 'magic', partySize: 1, expiryDays: 1, repPenalty: 15, isUrgent: true },
+
+    // D-Rank Urgent
+    { type: 'combat', name: 'Break Up Bar Fight', description: 'A brawl has erupted at the tavern and it\'s getting out of hand. Restore order before someone gets hurt!', baseGold: 80, baseRep: 15, baseExp: 45, difficulty: 'D', recommendedTraits: ['melee_attack', 'taunt'], recommendedType: 'melee', partySize: 1, expiryDays: 1, repPenalty: 25, isUrgent: true },
+    { type: 'exploration', name: 'Find Lost Child', description: 'A child has wandered into the woods and hasn\'t returned. Track them down quickly before nightfall!', baseGold: 70, baseRep: 12, baseExp: 40, difficulty: 'D', recommendedTraits: ['scouting', 'tracking'], recommendedType: 'ranged', partySize: 1, expiryDays: 1, repPenalty: 25, isUrgent: true },
+    { type: 'social', name: 'Substitute Teacher', description: 'The guild master is needed to teach a class of young recruits. Keep them engaged and inspired!', baseGold: 65, baseRep: 10, baseExp: 35, difficulty: 'D', recommendedTraits: ['inspire', 'trade_network'], recommendedType: 'support', partySize: 1, expiryDays: 1, repPenalty: 25, isUrgent: true },
+
+    // C-Rank Urgent
+    { type: 'combat', name: 'Defend City Gate', description: 'A group of hostile creatures is approaching the city gate! Defend the entrance at all costs!', baseGold: 150, baseRep: 25, baseExp: 55, difficulty: 'C', recommendedTraits: ['melee_attack', 'shield_block'], recommendedType: 'melee', partySize: 2, expiryDays: 1, repPenalty: 40, isUrgent: true },
+    { type: 'exploration', name: 'Chase the Thief', description: 'A thief has stolen valuable goods and is fleeing through the city! Catch them before they escape!', baseGold: 130, baseRep: 20, baseExp: 50, difficulty: 'C', recommendedTraits: ['stealth', 'scouting'], recommendedType: 'ranged', partySize: 1, expiryDays: 1, repPenalty: 35, isUrgent: true },
+
+    // B-Rank Urgent
+    { type: 'combat', name: 'Tavern on Fire', description: 'A fire has broken out at the tavern! Help people extinguish it and rescue those trapped inside!', baseGold: 250, baseRep: 40, baseExp: 65, difficulty: 'B', recommendedTraits: ['elemental_magic', 'shield_block'], recommendedType: 'magic', partySize: 2, expiryDays: 1, repPenalty: 60, isUrgent: true },
+    { type: 'social', name: 'Help Poisoned Merchant', description: 'A merchant has been poisoned and needs immediate aid! Find a way to cure them before it\'s too late.', baseGold: 220, baseRep: 35, baseExp: 60, difficulty: 'B', recommendedTraits: ['diagnose'], recommendedType: 'support', partySize: 1, expiryDays: 1, repPenalty: 55, isUrgent: true },
+    { type: 'combat', name: 'Hunt Horned Rabbit', description: 'A giant horned rabbit is terrorizing the farmlands! Track and defeat this elusive beast.', baseGold: 200, baseRep: 30, baseExp: 55, difficulty: 'B', recommendedTraits: ['ranged_attack', 'tracking'], recommendedType: 'ranged', partySize: 1, expiryDays: 1, repPenalty: 55, isUrgent: true },
+
+    // A-Rank Urgent
+    { type: 'social', name: 'King\'s Envoy', description: 'The king requires immediate diplomatic assistance. A party of diverse skills must respond to the royal summons!', baseGold: 400, baseRep: 60, baseExp: 80, difficulty: 'A', recommendedTraits: ['arcane_knowledge', 'trade_network', 'inspire'], recommendedType: 'support', partySize: 3, expiryDays: 1, repPenalty: 80, isUrgent: true },
+    { type: 'combat', name: 'Ambush Bandit Ringleader', description: 'The bandit ringleader has been spotted! A precise strike team is needed to eliminate this threat.', baseGold: 450, baseRep: 70, baseExp: 85, difficulty: 'A', recommendedTraits: ['stealth', 'backstab', 'ranged_attack'], recommendedType: 'melee', partySize: 2, expiryDays: 1, repPenalty: 85, isUrgent: true }
+];
+
 // ===== Guild Rank-Up Prerequisite System =====
 // Each rank requires: completed quests at previous rank + adventurer of target rank + reputation + rank-up quest + gold/materials
 const GUILD_RANK_UP = {

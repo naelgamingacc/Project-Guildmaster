@@ -79,6 +79,9 @@ class Game {
             g.year++;
         }
 
+        // Process quest expiry
+        const expiryResults = g.processQuestExpiry();
+
         // Process active quests
         const results = g.processTurn();
 
@@ -95,7 +98,25 @@ class Game {
             }
         });
 
-        // Process results
+        // Reset daily refresh count
+        g.refreshesToday = 0;
+
+        // Process expiry results
+        expiryResults.forEach(result => {
+            if (result.isUrgent) {
+                this.ui.showNotification(
+                    `🚨 URGENT quest "${result.quest.name}" expired! Lost ${result.repPenalty} reputation!`,
+                    'error'
+                );
+            } else {
+                this.ui.showNotification(
+                    `⚠️ Quest "${result.quest.name}" expired! Lost ${result.repPenalty} reputation.`,
+                    'warning'
+                );
+            }
+        });
+
+        // Process quest results
         results.forEach(result => {
             if (result.type === 'resolved') {
                 if (result.success) {
@@ -135,6 +156,22 @@ class Game {
         // Check for rank-up quest generation
         this.guild.checkAndGenerateRankUpQuest();
 
+        // Chance for urgent quest to appear
+        const urgentQuest = this.guild.trySpawnUrgentQuest();
+        if (urgentQuest) {
+            this.ui.showNotification(
+                `🚨 URGENT: ${urgentQuest.name}! Assign someone within 1 day!`,
+                'error'
+            );
+        }
+
+        // Auto-replenish empty quest board
+        if (g.availableQuests.length === 0) {
+            const numToGen = Math.floor(Math.random() * 2) + 1;
+            const newQuests = Quest.generateQuests(numToGen, g.rank);
+            newQuests.forEach(q => g.addQuest(q));
+        }
+
         // Update UI
         this.ui.updateResources();
         this.ui.renderCurrentTab();
@@ -153,8 +190,19 @@ class Game {
     }
 
     refreshQuests() {
-        const newQuests = this.guild.refreshQuests();
-        this.ui.showNotification(`Quest board refreshed! ${newQuests.length} new quests added.`, 'info');
+        const result = this.guild.refreshQuests();
+        if (result.success) {
+            let msg = `Refreshed! Paid ${result.cost}g. ${result.remaining} refreshes left today.`;
+            this.ui.showNotification(msg, 'info');
+            if (result.urgentQuest) {
+                this.ui.showNotification(
+                    `🚨 URGENT: ${result.urgentQuest.name}! ${result.urgentQuest.expiresIn} days to respond!`,
+                    'error'
+                );
+            }
+        } else {
+            this.ui.showNotification(result.message, 'error');
+        }
         this.ui.updateResources();
     }
 
@@ -186,14 +234,12 @@ class Game {
     }
 
     resetGame() {
-        if (confirm('Are you sure? This will delete your save!')) {
-            localStorage.removeItem('guildSimulatorSave');
-            this.guild = null;
-            this.startNewGame();
-            this.ui.updateResources();
-            this.ui.renderCurrentTab();
-            this.ui.showNotification('Game reset!', 'warning');
-        }
+        localStorage.removeItem('guildSimulatorSave');
+        this.guild = null;
+        this.startNewGame();
+        this.ui.updateResources();
+        this.ui.renderCurrentTab();
+        this.ui.showNotification('Game reset!', 'warning');
     }
 
     destroy() {

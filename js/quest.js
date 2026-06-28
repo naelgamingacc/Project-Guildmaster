@@ -43,6 +43,17 @@ class Quest {
 
         // Event log
         this.eventLog = [];
+
+        // Quest board expiry (for available quests)
+        this.isUrgent = template.isUrgent || false;
+        this.repPenalty = template.repPenalty || 0;
+        if (this.isRankUpQuest) {
+            this.expiresIn = Infinity;
+        } else if (template.expiryDays !== undefined) {
+            this.expiresIn = template.expiryDays;
+        } else {
+            this.expiresIn = Math.floor(Math.random() * 5) + 3; // 3-7 days
+        }
     }
 
     getDaysForDifficulty() {
@@ -403,7 +414,10 @@ class Quest {
             currentDay: this.currentDay,
             baseSuccessRate: this.baseSuccessRate,
             successChance: this.successChance,
-            eventLog: this.eventLog
+            eventLog: this.eventLog,
+            expiresIn: this.expiresIn,
+            isUrgent: this.isUrgent,
+            repPenalty: this.repPenalty
         };
     }
 
@@ -427,6 +441,10 @@ class Quest {
         if (data.currentTurn !== undefined && data.currentDay === undefined) {
             quest.currentDay = data.currentTurn;
         }
+        // Backward compat: default new fields for old saves
+        if (data.expiresIn === undefined) quest.expiresIn = Infinity;
+        if (data.isUrgent === undefined) quest.isUrgent = false;
+        if (data.repPenalty === undefined) quest.repPenalty = 0;
         return quest;
     }
 
